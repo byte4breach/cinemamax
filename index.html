@@ -299,7 +299,7 @@
       cursor: not-allowed;
     }
     .seat-btn.pop-in { animation: seatAppear 0.22s cubic-bezier(0.34,1.56,0.64,1) forwards; }
- 
+
     @keyframes seatAppear {
       from { opacity: 0; transform: scale(0); }
       to   { opacity: 1; transform: scale(1); }
@@ -609,23 +609,59 @@ if (tg) { tg.ready(); tg.expand(); }
 
 // ── Demo data (mirrors Java fallback) ────────────────────────
 const MOVIES = [
-  {id:1, title:'The Dark Horizon',  genre:'SCI-FI',   shows:4},
-  {id:2, title:'Red Velvet Night',  genre:'THRILLER',  shows:3},
-  {id:3, title:'Crimson Eclipse',   genre:'ACTION',    shows:5},
-  {id:4, title:'Midnight Requiem',  genre:'DRAMA',     shows:2},
-  {id:5, title:'Neon Syndicate',    genre:'CRIME',     shows:4},
-  {id:6, title:'Eternal Void',      genre:'SCI-FI',   shows:3},
-  {id:7, title:'Shadow Protocol',   genre:'THRILLER',  shows:5},
-  {id:8, title:'Last Frequency',    genre:'MYSTERY',   shows:2},
+  {id: 1, title:'The Dark Knight',            genre:'ACTION',    blockbuster:true,  shows:4},
+  {id: 2, title:'Interstellar',               genre:'SCI-FI',    blockbuster:true,  shows:4},
+  {id: 3, title:'Inception',                  genre:'THRILLER',  blockbuster:true,  shows:4},
+  {id: 4, title:'The Matrix',                 genre:'SCI-FI',    blockbuster:false, shows:3},
+  {id: 5, title:'Oppenheimer',                genre:'DRAMA',     blockbuster:true,  shows:4},
+  {id: 6, title:'Dune: Part Two',             genre:'SCI-FI',    blockbuster:true,  shows:4},
+  {id: 7, title:'Gladiator II',               genre:'ACTION',    blockbuster:true,  shows:4},
+  {id: 8, title:'John Wick 4',                genre:'ACTION',    blockbuster:false, shows:3},
+  {id: 9, title:'Spider-Man: Spider-Verse',   genre:'ANIMATION', blockbuster:false, shows:3},
+  {id:10, title:'Avatar: Way of Water',       genre:'SCI-FI',    blockbuster:true,  shows:4},
+  {id:11, title:'Pulp Fiction',               genre:'CRIME',     blockbuster:false, shows:3},
+  {id:12, title:'The Godfather',              genre:'CRIME',     blockbuster:false, shows:3},
+  {id:13, title:'Seven',                      genre:'THRILLER',  blockbuster:false, shows:3},
+  {id:14, title:'Fight Club',                 genre:'DRAMA',     blockbuster:false, shows:3},
+  {id:15, title:'Forrest Gump',               genre:'DRAMA',     blockbuster:false, shows:3},
+  {id:16, title:'The Lion King',              genre:'ANIMATION', blockbuster:false, shows:3},
+  {id:17, title:'Joker: Folie à Deux',        genre:'DRAMA',     blockbuster:true,  shows:4},
+  {id:18, title:'Deadpool & Wolverine',       genre:'ACTION',    blockbuster:true,  shows:4},
+  {id:19, title:'Iron Man',                   genre:'ACTION',    blockbuster:false, shows:3},
+  {id:20, title:'The Avengers',               genre:'ACTION',    blockbuster:true,  shows:4},
+  {id:21, title:'Parasite',                   genre:'THRILLER',  blockbuster:false, shows:3},
+  {id:22, title:'Spirited Away',              genre:'ANIMATION', blockbuster:false, shows:3},
+  {id:23, title:'Mad Max: Fury Road',         genre:'ACTION',    blockbuster:false, shows:3},
+  {id:24, title:'Top Gun: Maverick',          genre:'ACTION',    blockbuster:true,  shows:4},
+  {id:25, title:'Blade Runner 2049',          genre:'SCI-FI',    blockbuster:false, shows:3},
+  {id:26, title:'The Prestige',               genre:'THRILLER',  blockbuster:false, shows:3},
+  {id:27, title:'Whiplash',                   genre:'DRAMA',     blockbuster:false, shows:3},
+  {id:28, title:'Coco',                       genre:'ANIMATION', blockbuster:false, shows:3},
+  {id:29, title:'Arrival',                    genre:'SCI-FI',    blockbuster:false, shows:3},
+  {id:30, title:'Alien: Romulus',             genre:'HORROR',    blockbuster:true,  shows:4},
 ];
 
-const SHOWTIMES = [
-  {id:1, hall:'Standard Hall A', time:'13:30', vip:false, avail:55},
-  {id:2, hall:'Standard Hall B', time:'16:00', vip:false, avail:8},
-  {id:3, hall:'VIP Platinum',    time:'18:45', vip:true,  avail:14},
-  {id:4, hall:'Standard Hall A', time:'20:15', vip:false, avail:72},
-  {id:5, hall:'VIP Platinum',    time:'22:30', vip:true,  avail:22},
-];
+// Showtimes are generated per-movie based on blockbuster status,
+// matching the DB: Hall A 11:00, Hall B 15:30, Hall C 19:00 (+VIP 22:00 if blockbuster)
+function getShowtimesForMovie(movie) {
+  const base = [
+    {id: movie.id*10+1, hall:'Hall A',       time:'11:00', vip:false, avail: lcgAvail(movie.id*10+1)},
+    {id: movie.id*10+2, hall:'Hall B',       time:'15:30', vip:false, avail: lcgAvail(movie.id*10+2)},
+    {id: movie.id*10+3, hall:'Hall C',       time:'19:00', vip:false, avail: lcgAvail(movie.id*10+3)},
+  ];
+  if (movie.blockbuster) {
+    base.push({id: movie.id*10+4, hall:'VIP Platinum', time:'22:00', vip:true, avail: lcgAvail(movie.id*10+4)});
+  }
+  return base;
+}
+function lcgAvail(seed) {
+  let s = seed & 0x7fffffff;
+  s = (Math.imul(s, 1664525) + 1013904223) & 0x7fffffff;
+  return 8 + (s % 68); // 8–75 seats available
+}
+
+// Legacy SHOWTIMES kept for reference (replaced by getShowtimesForMovie)
+const SHOWTIMES = [];
 
 // ── App state ─────────────────────────────────────────────────
 const S = {
@@ -729,7 +765,7 @@ function selectMovie(movie) {
 function renderTimes() {
   const grid = document.getElementById('timeGrid');
   grid.innerHTML = '';
-  SHOWTIMES.forEach((s, i) => {
+  getShowtimesForMovie(S.movie).forEach((s, i) => {
     const low = s.avail < 15;
     const chip = document.createElement('div');
     chip.className = 'time-chip' + (s.vip ? ' vip-chip' : '');

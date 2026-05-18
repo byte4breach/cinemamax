@@ -10,25 +10,17 @@
 
     html, body {
       height: 100%;
-      height: 100dvh;
-      height: calc(var(--tg-vh, 1vh) * 100);
       background: #07070d;
       color: #fff;
       font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
       overflow: hidden;
       -webkit-tap-highlight-color: transparent;
-      padding-top: env(safe-area-inset-top);
-      padding-bottom: env(safe-area-inset-bottom);
-      padding-left: env(safe-area-inset-left);
-      padding-right: env(safe-area-inset-right);
     }
 
     #app {
       display: flex;
       flex-direction: column;
       height: 100%;
-      height: 100dvh;
-      height: calc(var(--tg-vh, 1vh) * 100);
       overflow: hidden;
     }
 
@@ -613,70 +605,86 @@
 <script>
 // ── Telegram Mini App SDK ─────────────────────────────────────
 const tg = window.Telegram?.WebApp;
-if (tg) {
-  tg.ready();
-  tg.expand();
-  if (typeof tg.requestFullscreen === "function") tg.requestFullscreen();
-  function setVh() { document.documentElement.style.setProperty("--tg-vh", window.innerHeight * 0.01 + "px"); }
-  setVh();
-  window.addEventListener("resize", setVh);
-}
+if (tg) { tg.ready(); tg.expand(); }
 
-// ── Demo data (mirrors Java fallback) ────────────────────────
-const MOVIES = [
-  {id: 1, title:'The Dark Knight',            genre:'ACTION',    blockbuster:true,  shows:4},
-  {id: 2, title:'Interstellar',               genre:'SCI-FI',    blockbuster:true,  shows:4},
-  {id: 3, title:'Inception',                  genre:'THRILLER',  blockbuster:true,  shows:4},
-  {id: 4, title:'The Matrix',                 genre:'SCI-FI',    blockbuster:false, shows:3},
-  {id: 5, title:'Oppenheimer',                genre:'DRAMA',     blockbuster:true,  shows:4},
-  {id: 6, title:'Dune: Part Two',             genre:'SCI-FI',    blockbuster:true,  shows:4},
-  {id: 7, title:'Gladiator II',               genre:'ACTION',    blockbuster:true,  shows:4},
-  {id: 8, title:'John Wick 4',                genre:'ACTION',    blockbuster:false, shows:3},
-  {id: 9, title:'Spider-Man: Spider-Verse',   genre:'ANIMATION', blockbuster:false, shows:3},
-  {id:10, title:'Avatar: Way of Water',       genre:'SCI-FI',    blockbuster:true,  shows:4},
-  {id:11, title:'Pulp Fiction',               genre:'CRIME',     blockbuster:false, shows:3},
-  {id:12, title:'The Godfather',              genre:'CRIME',     blockbuster:false, shows:3},
-  {id:13, title:'Seven',                      genre:'THRILLER',  blockbuster:false, shows:3},
-  {id:14, title:'Fight Club',                 genre:'DRAMA',     blockbuster:false, shows:3},
-  {id:15, title:'Forrest Gump',               genre:'DRAMA',     blockbuster:false, shows:3},
-  {id:16, title:'The Lion King',              genre:'ANIMATION', blockbuster:false, shows:3},
-  {id:17, title:'Joker: Folie à Deux',        genre:'DRAMA',     blockbuster:true,  shows:4},
-  {id:18, title:'Deadpool & Wolverine',       genre:'ACTION',    blockbuster:true,  shows:4},
-  {id:19, title:'Iron Man',                   genre:'ACTION',    blockbuster:false, shows:3},
-  {id:20, title:'The Avengers',               genre:'ACTION',    blockbuster:true,  shows:4},
-  {id:21, title:'Parasite',                   genre:'THRILLER',  blockbuster:false, shows:3},
-  {id:22, title:'Spirited Away',              genre:'ANIMATION', blockbuster:false, shows:3},
-  {id:23, title:'Mad Max: Fury Road',         genre:'ACTION',    blockbuster:false, shows:3},
-  {id:24, title:'Top Gun: Maverick',          genre:'ACTION',    blockbuster:true,  shows:4},
-  {id:25, title:'Blade Runner 2049',          genre:'SCI-FI',    blockbuster:false, shows:3},
-  {id:26, title:'The Prestige',               genre:'THRILLER',  blockbuster:false, shows:3},
-  {id:27, title:'Whiplash',                   genre:'DRAMA',     blockbuster:false, shows:3},
-  {id:28, title:'Coco',                       genre:'ANIMATION', blockbuster:false, shows:3},
-  {id:29, title:'Arrival',                    genre:'SCI-FI',    blockbuster:false, shows:3},
-  {id:30, title:'Alien: Romulus',             genre:'HORROR',    blockbuster:true,  shows:4},
-];
+// ── API base URL ──────────────────────────────────────────────
+// When running inside the Java server, this is empty (same origin).
+// For local dev, change to 'http://localhost:8080'
+const API_BASE = '';
 
-// Showtimes are generated per-movie based on blockbuster status,
-// matching the DB: Hall A 11:00, Hall B 15:30, Hall C 19:00 (+VIP 22:00 if blockbuster)
-function getShowtimesForMovie(movie) {
-  const base = [
-    {id: movie.id*10+1, hall:'Hall A',       time:'11:00', vip:false, avail: lcgAvail(movie.id*10+1)},
-    {id: movie.id*10+2, hall:'Hall B',       time:'15:30', vip:false, avail: lcgAvail(movie.id*10+2)},
-    {id: movie.id*10+3, hall:'Hall C',       time:'19:00', vip:false, avail: lcgAvail(movie.id*10+3)},
-  ];
-  if (movie.blockbuster) {
-    base.push({id: movie.id*10+4, hall:'VIP Platinum', time:'22:00', vip:true, avail: lcgAvail(movie.id*10+4)});
+// ── Data cache ────────────────────────────────────────────────
+let MOVIES = [];
+let SHOWTIMES_CACHE = {};   // { movieId: [...] }
+let BOOKED_CACHE = {};      // { showtimeId: Set("r-c") }
+
+// ── Fetch movies from Java API ────────────────────────────────
+async function loadMovies() {
+  try {
+    const res = await fetch(`${API_BASE}/api/movies`);
+    const data = await res.json();
+    // Map Java DTO fields to the shape the rest of the JS expects
+    MOVIES = data.map(m => ({
+      id:          m.id,
+      title:       m.title,
+      genre:       m.genre,
+      blockbuster: m.blockbuster,
+      shows:       m.showCount
+    }));
+  } catch (e) {
+    console.error('Failed to load movies:', e);
+    MOVIES = [];
   }
-  return base;
-}
-function lcgAvail(seed) {
-  let s = seed & 0x7fffffff;
-  s = (Math.imul(s, 1664525) + 1013904223) & 0x7fffffff;
-  return 8 + (s % 68); // 8–75 seats available
 }
 
-// Legacy SHOWTIMES kept for reference (replaced by getShowtimesForMovie)
-const SHOWTIMES = [];
+// ── Fetch showtimes for a movie ───────────────────────────────
+async function getShowtimesForMovie(movie) {
+  if (SHOWTIMES_CACHE[movie.id]) return SHOWTIMES_CACHE[movie.id];
+  try {
+    const res = await fetch(`${API_BASE}/api/movies/${movie.id}/showtimes`);
+    const data = await res.json();
+    const mapped = data.map(s => ({
+      id:    s.id,
+      hall:  s.hallName,
+      time:  s.showTime,
+      vip:   s.vip,
+      avail: s.available
+    }));
+    SHOWTIMES_CACHE[movie.id] = mapped;
+    return mapped;
+  } catch (e) {
+    console.error('Failed to load showtimes:', e);
+    return [];
+  }
+}
+
+// ── Fetch booked seats for a showtime ────────────────────────
+async function getBookedSeats(showtimeId) {
+  if (BOOKED_CACHE[showtimeId]) return BOOKED_CACHE[showtimeId];
+  try {
+    const res = await fetch(`${API_BASE}/api/showtimes/${showtimeId}/seats`);
+    const data = await res.json();  // ["0-1", "2-3", ...]
+    const set = new Set(data);
+    BOOKED_CACHE[showtimeId] = set;
+    return set;
+  } catch (e) {
+    console.error('Failed to load booked seats:', e);
+    return new Set();
+  }
+}
+
+// ── Confirm booking via API ───────────────────────────────────
+async function apiBookSeats(showtimeId, seats) {
+  const res = await fetch(`${API_BASE}/api/bookings`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ showtimeId, seats: [...seats] })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Booking failed');
+  // Invalidate cache so re-opening the showtime shows updated seats
+  delete BOOKED_CACHE[showtimeId];
+  return data;
+}
 
 // ── App state ─────────────────────────────────────────────────
 const S = {
@@ -727,15 +735,17 @@ function setStep(active) {
 }
 
 // ── Gallery ───────────────────────────────────────────────────
-function showGallery() {
+async function showGallery() {
   setStep(1);
   S.selected.clear();
   showPage('gallery', -1);
-  renderGallery();
+  await renderGallery();
 }
 
-function renderGallery() {
+async function renderGallery() {
   const grid = document.getElementById('movieGrid');
+  grid.innerHTML = '<div style="color:rgba(255,255,255,0.5);text-align:center;padding:40px">Loading…</div>';
+  if (MOVIES.length === 0) await loadMovies();
   grid.innerHTML = '';
   MOVIES.forEach((m, i) => {
     const initials = m.title.split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase();
@@ -769,18 +779,20 @@ function filterMovies(q) {
 }
 
 // ── Showtimes ─────────────────────────────────────────────────
-function selectMovie(movie) {
+async function selectMovie(movie) {
   S.movie = movie;
   document.getElementById('timeTitle').textContent = movie.title;
   setStep(2);
   showPage('time', 1);
-  renderTimes();
+  await renderTimes();
 }
 
-function renderTimes() {
+async function renderTimes() {
   const grid = document.getElementById('timeGrid');
+  grid.innerHTML = '<div style="color:rgba(255,255,255,0.5);text-align:center;padding:40px">Loading…</div>';
+  const showtimes = await getShowtimesForMovie(S.movie);
   grid.innerHTML = '';
-  getShowtimesForMovie(S.movie).forEach((s, i) => {
+  showtimes.forEach((s, i) => {
     const low = s.avail < 15;
     const chip = document.createElement('div');
     chip.className = 'time-chip' + (s.vip ? ' vip-chip' : '');
@@ -796,13 +808,13 @@ function renderTimes() {
 }
 
 // ── Seats ─────────────────────────────────────────────────────
-function selectShowtime(st) {
+async function selectShowtime(st) {
   S.showtime = st;
   S.selected.clear();
 
   const rows = st.vip ? 4 : 8;
   const cols = st.vip ? 6 : 12;
-  S.booked = genBooked(st.id, rows, cols);
+  S.booked = await getBookedSeats(st.id);
 
   document.getElementById('seatTitle').textContent =
     S.movie.title + (st.vip ? '  ★ VIP' : '');
@@ -936,9 +948,15 @@ function showTicket() {
 }
 
 // ── Confirm / success ─────────────────────────────────────────
-function confirmBooking() {
-  S.selected.forEach(p => S.booked.add(p));
-  S.selected.clear();
+async function confirmBooking() {
+  try {
+    await apiBookSeats(S.showtime.id, S.selected);
+    S.selected.forEach(p => S.booked.add(p));
+    S.selected.clear();
+  } catch(e) {
+    alert('Booking error: ' + e.message);
+    return;
+  }
 
   document.getElementById('backBtn').classList.add('hidden');
   showPage('success', 1);
@@ -968,7 +986,7 @@ function shakeEl(id) {
 }
 
 // ── Boot ──────────────────────────────────────────────────────
-renderGallery();
+showGallery();
 </script>
 </body>
 </html>

@@ -1,0 +1,25 @@
+# Java
+java-backend/target/
+*.class
+*.jar
+*.war
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.suo
+
+# Environment
+.env
+*.env.local
+
+# OS
+.DS_Store
+Thumbs.db

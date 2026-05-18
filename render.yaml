@@ -1,0 +1,49 @@
+# render.yaml
+# This file tells Render.com exactly how to build and run both services.
+# Commit this file to the ROOT of your GitHub repo.
+# Then on Render: New → Blueprint → connect your repo.
+
+services:
+
+  # ── 1. Java Spring Boot API ─────────────────────────────────────
+  - type: web
+    name: cinemamax-api
+    runtime: java
+    # Render auto-detects Maven pom.xml in this folder
+    rootDir: java-backend
+    buildCommand: ./mvnw clean package -DskipTests
+    startCommand: java -jar target/cinemamax-backend-1.0.0.jar
+    plan: free
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: cinemamax-db
+          property: connectionString
+      # Add your allowed frontend origins (GitHub Pages URL or custom domain)
+      - key: CORS_ORIGINS
+        value: https://YOUR_GITHUB_USERNAME.github.io
+
+  # ── 2. Python Telegram Bot ──────────────────────────────────────
+  - type: worker          # background worker — no HTTP port needed
+    name: cinemamax-bot
+    runtime: python
+    rootDir: python-bot
+    buildCommand: pip install -r requirements.txt
+    startCommand: python bot.py
+    plan: free
+    envVars:
+      - key: BOT_TOKEN
+        sync: false        # you will fill this in the Render dashboard
+      - key: API_BASE_URL
+        fromService:
+          name: cinemamax-api
+          type: web
+          property: host
+          envVarKey: API_BASE_URL
+
+# ── PostgreSQL database ─────────────────────────────────────────
+databases:
+  - name: cinemamax-db
+    plan: free
+    databaseName: cinema_db
+    user: cinemamax

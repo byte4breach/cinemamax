@@ -14,8 +14,8 @@ services:
       - key: CORS_ORIGINS
         value: https://byte4breach.github.io
 
-  # ── 2. Python Telegram Bot ──────────────────────────────────────
-  - type: worker
+  # ── 2. Python Telegram Bot (web type — worker not on free plan) ──
+  - type: web
     name: cinemamax-bot
     runtime: python
     rootDir: python-bot

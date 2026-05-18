@@ -1,7 +1,9 @@
 
 import os
 import asyncio
+import threading
 import aiohttp
+from http.server import HTTPServer, BaseHTTPRequestHandler
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from telegram.ext import (
     Application, CommandHandler, CallbackQueryHandler,
@@ -19,6 +21,24 @@ MOVIES_PER_PAGE = 6
 
 # Conversation states
 CHOICE, GALLERY, TIMES, SEATS, CONFIRM = range(5)
+
+
+# ── Health-check server (required by Render — it needs a bound port) ──────────
+
+class HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"OK")
+
+    def log_message(self, *args):
+        pass  # silence HTTP logs
+
+
+def run_health_server():
+    port = int(os.environ.get("PORT", 8080))
+    server = HTTPServer(("0.0.0.0", port), HealthHandler)
+    server.serve_forever()
 
 
 # ── HTTP helpers (async, uses aiohttp) ────────────────────────────────────────
@@ -321,6 +341,10 @@ async def noop(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 # ── Main ───────────────────────────────────────────────────────────────────────
 
 def main():
+    # Start health-check server in background thread (Render requires a bound port)
+    threading.Thread(target=run_health_server, daemon=True).start()
+    print(f"✅ Health server listening on port {os.environ.get('PORT', 8080)}")
+
     app = Application.builder().token(BOT_TOKEN).build()
 
     conv = ConversationHandler(

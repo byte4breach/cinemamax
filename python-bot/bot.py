@@ -1,14 +1,3 @@
-"""
-CinemaMax – Telegram Bot (Python)
-
-This bot no longer talks to PostgreSQL directly.
-Instead it calls the Java Spring Boot REST API running on Render.
-That way Java handles all DB logic (validation, transactions, etc.).
-
-ENV VARIABLES required on Render (Web Service for this bot):
-  BOT_TOKEN    – your Telegram bot token
-  API_BASE_URL – URL of your Java backend, e.g. https://cinemamax-api.onrender.com
-"""
 
 import os
 import asyncio
@@ -20,8 +9,8 @@ from telegram.ext import (
 )
 
 # ── Config ─────────────────────────────────────────────────────────────────────
-BOT_TOKEN    = os.environ["BOT_TOKEN"]
-API_BASE_URL = os.environ["API_BASE_URL"].rstrip("/")   # e.g. https://cinemamax-api.onrender.com
+BOT_TOKEN    = os.environ["8796607447:AAHrAD8XAGypkwmooCq_q4NUqKOLEd-_ITw"]
+API_BASE_URL = os.environ["https://cinemamax-api.onrender.com"].rstrip("/")   
 WEB_APP_URL  = os.environ.get("WEB_APP_URL", f"{API_BASE_URL}/")
 
 STANDARD_PRICE = 20

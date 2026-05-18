@@ -1,0 +1,43 @@
+# .github/workflows/deploy.yml
+#
+# This workflow runs every time you push to the main branch.
+# It triggers Render to redeploy both services automatically.
+# You NEVER need to open IntelliJ IDEA or VS Code to deploy.
+#
+# Setup (one time):
+#   1. Go to Render Dashboard → Account Settings → API Keys → Create API Key
+#   2. Go to your GitHub repo → Settings → Secrets and variables → Actions
+#   3. Add secret: RENDER_API_KEY  (paste the Render API key)
+#   4. Add secret: RENDER_API_SERVICE_ID  (from cinemamax-api service URL on Render)
+#   5. Add secret: RENDER_BOT_SERVICE_ID  (from cinemamax-bot service URL on Render)
+
+name: Deploy to Render
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy-api:
+    name: Deploy Java API
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render deploy (Java API)
+        run: |
+          curl -s -X POST \
+            "https://api.render.com/v1/services/${{ secrets.RENDER_API_SERVICE_ID }}/deploys" \
+            -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{"clearCache": false}'
+
+  deploy-bot:
+    name: Deploy Python Bot
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render deploy (Python Bot)
+        run: |
+          curl -s -X POST \
+            "https://api.render.com/v1/services/${{ secrets.RENDER_BOT_SERVICE_ID }}/deploys" \
+            -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{"clearCache": false}'
